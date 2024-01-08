@@ -1,7 +1,9 @@
 # DiscordBot-OpenAI-API
 A simple Python-based Discord bot for the OpenAI API
 
-**NOTE:** This is heavily WIP and is currently only intended for special use case purposes. For a more sophisticated project, see i.e. my[Telegram bot](https://github.com/FlyingFathead/TelegramBot-OpenAI-API/)
+**NOTE: This bot is heavily WIP and is currently only intended for special use case purposes. Many of the features have not been implemented yet.** For a more sophisticated project, see i.e. my[Telegram bot](https://github.com/FlyingFathead/TelegramBot-OpenAI-API/)
+
+Although merely a crude initial sketch, this bot basis uses (as of January 2024) the up-to-date version of OpenAI's Python library (`v1.6.1`) as well as `discord.py` (`v2.3.2`).
 
 # Installing
 1. Clone the repo: `git clone https://github.com/FlyingFathead/DiscordBot-OpenAI-API/` => `cd DiscordBot-OpenAI-API/`
@@ -31,7 +33,7 @@ requests>=2.31.0
 - v0.05 - Well, it works. Initial early release. Expect nothing much.
 
 # Contribute
-- All contributions appreciated! Feel free to also post any bugs and other issues on the repo's "Issues" page.
+- All contributions appreciated! Feel free to also post any bugs and other issues on the repo's "Issues" page. However, please do note the heavy WIP status of this project. No warranties!
 
 # About
 - Written by [FlyingFathead](https://github.com/FlyingFathead/)
