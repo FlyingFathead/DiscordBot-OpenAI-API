@@ -28,10 +28,10 @@ async def handle_message(bot, message):
 
         # only for voice msg tnrascriptions, not in use atm
         """ # Check if there is a transcribed text available
-        if 'transcribed_text' in context.user_data:
-            user_message = context.user_data['transcribed_text']
+        if 'transcribed_text' in chat_history.user_data:
+            user_message = chat_history.user_data['transcribed_text']
             # Clear the transcribed text after using it
-            del context.user_data['transcribed_text']
+            del chat_history.user_data['transcribed_text']
         else:
             user_message = update.message.text """
 
@@ -42,43 +42,130 @@ async def handle_message(bot, message):
 
         # Managing chat history per channel
         channel_id = message.channel.id
+
+        # clear the chat history in a suitable syntax for Discord
         if channel_id not in bot.chat_history:
+            bot.chat_history[channel_id] = {
+                'last_message_time': datetime.datetime.utcnow(),
+                'messages': []
+            }
+
+        """ if channel_id not in bot.chat_history:
             bot.chat_history[channel_id] = []
 
-        chat_history = bot.chat_history[channel_id]
+        chat_history = bot.chat_history[channel_id] """
+
+        chat_history = bot.chat_history[channel_id]['messages']
+        last_message_time = bot.chat_history[channel_id]['last_message_time']
 
         # Log token counts for debugging
         bot.logger.info(f"[Token counting/debug] user_token_count type: {type(user_token_count)}, value: {user_token_count}")
         bot.logger.info(f"[Token counting/debug] bot.total_token_usage type: {type(bot.total_token_usage)}, value: {bot.total_token_usage}")
 
+        # Convert max_tokens_config to an integer =>
+        # Attempt to read max_tokens_config as an integer =>
         # Check token usage limit
         try:
             max_tokens_config = bot.config.getint('GlobalMaxTokenUsagePerDay', 100000)
             is_no_limit = max_tokens_config == 0
+            bot.logger.info(f"[Token counting/debug] max_tokens_config type: {type(max_tokens_config)}, value: {max_tokens_config}")
+            # Debug: Print the value read from token_usage.json
+            bot.logger.info(f"[Debug] Total token usage from file: {bot.total_token_usage}")
+
         except ValueError:
             bot.logger.error("Invalid value for GlobalMaxTokenUsagePerDay in the configuration file.")
             await message.channel.send("An error occurred while processing your request.")
             return
 
+        # Safely compare user_token_count and max_tokens_config
         if not is_no_limit and (bot.total_token_usage + user_token_count) > max_tokens_config:
             await message.channel.send("The bot has reached its daily token limit. Please try again tomorrow.")
             return
 
+        # Debug: Print before token limit checks
+        bot.logger.info(f"[Debug] is_no_limit: {is_no_limit}, user_token_count: {user_token_count}, max_tokens_config: {max_tokens_config}")
+
         # Preparing the chat history and message for the API request
-        utc_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        # utc_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        # user_message_with_timestamp = f"[{utc_timestamp}] {user_message}"
+
+        # get date & time for timestamps
+        now_utc = datetime.datetime.utcnow()
+        current_time = now_utc
+        utc_timestamp = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+        day_of_week = now_utc.strftime("%A")
         user_message_with_timestamp = f"[{utc_timestamp}] {user_message}"
 
+        # Add the user's tokens to the total usage
         bot.total_token_usage += user_token_count
         bot.logger.info(f"Received message from {message.author.name}: {user_message}")
 
-        # Prepare the conversation history for OpenAI API
-        system_message = {"role": "system", "content": f"System time+date: {utc_timestamp}, {day_of_week}): {bot.system_instructions}"}
+        # Check if session timeout is enabled and if session is timed out
+        if bot.session_timeout_minutes > 0:
+            timeout_seconds = bot.session_timeout_minutes * 60  # Convert minutes to seconds
+            if 'last_message_time' in chat_history.chat_data:
+                last_message_time = chat_history.chat_data['last_message_time']
+                elapsed_time = (current_time - last_message_time).total_seconds()
+
+                if elapsed_time > timeout_seconds:
+                    # Log the length of chat history before trimming
+                    chat_history_length_before = len(chat_history.chat_data.get('chat_history', []))
+                    bot.logger.info(f"Chat history length before trimming: {chat_history_length_before}")
+
+                    # Session timeout logic
+                    if bot.max_retained_messages == 0:
+                        # Clear entire history
+                        chat_history.clear()
+                        bot.logger.info(f"'MaxRetainedMessages' set to 0, cleared the entire chat history due to session timeout.")
+                    else:
+                        # Keep the last N messages
+                        chat_history = chat_history[-bot.max_retained_messages:]                        
+                        bot.logger.info(f"Retained the last {bot.max_retained_messages} messages due to session timeout.")
+
+                    # Update the last message time
+                    bot.chat_history[channel_id]['last_message_time'] = datetime.datetime.utcnow()
+                    bot.logger.info(f"Session timeout. Chat history updated.")
+
+                    # Log the length of chat history after trimming
+                    chat_history_length_after = len(chat_history.chat_data.get('chat_history', []))
+                    bot.logger.info(f"Chat history length after trimming: {chat_history_length_after}")
+
+                    bot.logger.info(f"[DebugInfo] Session timed out. Chat history updated.")
+        else:
+            # Log the skipping of session timeout check
+            bot.logger.info(f"[DebugInfo] Session timeout check skipped as 'SessionTimeoutMinutes' is set to 0.")            
+
+        # Update chat history and last message time after processing the current message
+        bot.chat_history[channel_id]['messages'] = chat_history
+        bot.chat_history[channel_id]['last_message_time'] = datetime.datetime.utcnow()
+
+        # Update the time of the last message
+        if 'last_message_time' in chat_history:
+            chat_history['last_message_time'] = current_time
+
+        # Log the current chat history
+        # bot.logger.debug(f"Current chat history: {context.chat_data.get('chat_history')}")
+
+        # Initialize chat_history as an empty list if it doesn't exist
+        # chat_history = context.chat_data.get('chat_history', [])
+
+        # Append the new user message to the chat history
+        # chat_history.append({"role": "user", "content": user_message_with_timestamp})
 
         # Append the new user message to the chat history
         chat_history.append({"role": "user", "content": user_message_with_timestamp})
+
+        # Prepare the conversation history to send to the OpenAI API
+        system_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        system_message = {"role": "system", "content": f"System time+date: {system_timestamp}, {day_of_week}): {bot.system_instructions}"}
+
         chat_history_with_system_message = [system_message] + chat_history
 
-        # Your existing API request logic...
+        # Trim chat history if it exceeds a specified length or token limit
+        bot.trim_chat_history(chat_history, bot.max_tokens)
+
+        # Log the incoming user message
+        bot.log_message('User', message.author.id, message.content)
 
         # Append the bot's response to the chat history
         chat_history.append({"role": "assistant", "content": bot_reply})
