@@ -65,6 +65,7 @@ async def handle_message(bot, message, channel_id):
     try:
         user_message = message.content
         channel_id = message.channel.id
+        user_id = message.author.id  # Get the user's ID        
         username = message.author.name  # Get the username of the message author
         display_name = message.author.display_name  # Get the display name of the message author
 
@@ -92,8 +93,9 @@ async def handle_message(bot, message, channel_id):
         append_to_chat_history(chat_history, system_message["role"], system_message["content"])
 
         # Append the user message with the username to the chat history
-        user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
-        logging.info(f"[INFO] Käyttäjä {display_name} sanoo: {user_message}")
+        user_message_with_username = f"Käyttäjä <@{user_id}> sanoo: {user_message}"
+        # user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
+        logging.info(f"[INFO][userid for the bot: {user_id}] Käyttäjä {display_name} sanoo: {user_message}")
         append_to_chat_history(chat_history, "user", user_message_with_username)
 
         # Attempt to send a reply
@@ -121,12 +123,23 @@ async def handle_message(bot, message, channel_id):
                 # Process the response and extract the bot's reply
                 if response.status_code == 200:
                     bot_reply = response_json['choices'][0]['message']['content'].strip()
-                    append_to_chat_history(chat_history, "assistant", bot_reply)
+
+                    # Format the bot's reply with user mention
+                    # bot_reply_formatted = f"<@{user_id}> {bot_reply}"    
+
+                    bot_reply_formatted = f"{bot_reply}"    
+
+                    # append_to_chat_history(chat_history, "assistant", bot_reply)
+                    append_to_chat_history(chat_history, "assistant", bot_reply_formatted)
 
                     # Log the bot's response
-                    bot.logger.info(f"Bot's reply in channel {channel_id}: {bot_reply}")
+                    # bot.logger.info(f"Bot's reply in channel {channel_id}: {bot_reply}")
+                    # await message.channel.send(bot_reply)
+                    
+                    # Log the bot's response
+                    bot.logger.info(f"Bot's reply in channel {channel_id}: {bot_reply_formatted}")
 
-                    await message.channel.send(bot_reply)
+                    await message.channel.send(bot_reply_formatted)                    
                     break
                 else:
                     bot.logger.error("Received error response from API")
