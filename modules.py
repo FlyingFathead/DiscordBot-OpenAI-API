@@ -7,6 +7,8 @@ import re
 
 # count tokens
 def count_tokens(text, tokenizer):
+    if text is None:
+        return 0
     return len(tokenizer.encode(text))
 
 # read total token usage

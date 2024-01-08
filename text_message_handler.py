@@ -12,10 +12,38 @@ import openai
 import utils
 
 # discord modules
+# discord bot modules
+import discord
 from discord.ext import commands
 
+intents = discord.Intents.default()
+intents.message_content = True  # Enable message content intent
+
+# Before appending a message to chat_history
+def validate_and_append_message(bot, chat_history, role, content):
+    if content:  # Ensure content is not None or empty
+        chat_history.append({"role": role, "content": content})
+    else:
+        bot.logger.info(f"Skipped appending a message with empty content. Role: {role}")
+
 # Discord text message handling logic
-async def handle_message(bot, message):
+async def handle_message(bot, message, channel_id):
+    # Check and log the type of the message object
+    bot.logger.info(f"Type of message object: {type(message)}")
+
+    # Type check for message object
+    if not isinstance(message, discord.Message):
+        bot.logger.error(f"Invalid message object type: {type(message)}")
+        return
+
+    # Debug: Log the message object's attributes
+    bot.logger.info(f"Message received - Author: {message.author}, Content: '{message.content}', Channel: {message.channel}")
+
+    # bot.logger.info(f"Received message object: {message}")
+
+    # Initialize bot_reply before the for-loop
+    bot_reply = None
+
     # Send a "holiday message" if the bot is on a break
     if bot.is_bot_disabled:
         await message.channel.send(bot.bot_disabled_msg)
@@ -38,9 +66,6 @@ async def handle_message(bot, message):
     # process a text message
     try:
         user_message = message.content
-        user_token_count = bot.count_tokens(user_message)
-
-        # Managing chat history per channel
         channel_id = message.channel.id
 
         # clear the chat history in a suitable syntax for Discord
@@ -50,12 +75,21 @@ async def handle_message(bot, message):
                 'messages': []
             }
 
-        """ if channel_id not in bot.chat_history:
-            bot.chat_history[channel_id] = []
-
-        chat_history = bot.chat_history[channel_id] """
-
         chat_history = bot.chat_history[channel_id]['messages']
+
+        if user_message:  # Check if the message content is valid
+            # Process the message and add to chat history
+            utc_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            validate_and_append_message(bot, chat_history, "user", f"[{utc_timestamp}] {user_message}")
+        else:
+            bot.logger.info(f"Received empty or None content from user: {message.author}")
+
+        bot.logger.info(f"User message content: '{user_message}'")  # Debug: Log the user message content
+        user_token_count = bot.count_tokens(user_message)
+
+        # Managing chat history per channel
+        channel_id = message.channel.id
+
         last_message_time = bot.chat_history[channel_id]['last_message_time']
 
         # Log token counts for debugging
@@ -97,43 +131,45 @@ async def handle_message(bot, message):
         user_message_with_timestamp = f"[{utc_timestamp}] {user_message}"
 
         # Add the user's tokens to the total usage
-        bot.total_token_usage += user_token_count
+        if bot_reply is not None:
+            bot.total_token_usage += user_token_count
+        
         bot.logger.info(f"Received message from {message.author.name}: {user_message}")
 
         # Check if session timeout is enabled and if session is timed out
         if bot.session_timeout_minutes > 0:
             timeout_seconds = bot.session_timeout_minutes * 60  # Convert minutes to seconds
-            if 'last_message_time' in chat_history.chat_data:
-                last_message_time = chat_history.chat_data['last_message_time']
-                elapsed_time = (current_time - last_message_time).total_seconds()
+            
+            # Note: 'last_message_time' is directly under bot.chat_history[channel_id], not in 'chat_data'
+            elapsed_time = (datetime.datetime.utcnow() - last_message_time).total_seconds()
 
-                if elapsed_time > timeout_seconds:
-                    # Log the length of chat history before trimming
-                    chat_history_length_before = len(chat_history.chat_data.get('chat_history', []))
-                    bot.logger.info(f"Chat history length before trimming: {chat_history_length_before}")
+            if elapsed_time > timeout_seconds:
+                # Log the length of chat history before trimming
+                chat_history_length_before = len(chat_history)
+                bot.logger.info(f"Chat history length before trimming: {chat_history_length_before}")
 
-                    # Session timeout logic
-                    if bot.max_retained_messages == 0:
-                        # Clear entire history
-                        chat_history.clear()
-                        bot.logger.info(f"'MaxRetainedMessages' set to 0, cleared the entire chat history due to session timeout.")
-                    else:
-                        # Keep the last N messages
-                        chat_history = chat_history[-bot.max_retained_messages:]                        
-                        bot.logger.info(f"Retained the last {bot.max_retained_messages} messages due to session timeout.")
+                # Session timeout logic
+                if bot.max_retained_messages == 0:
+                    # Clear entire history
+                    chat_history.clear()
+                    bot.logger.info(f"'MaxRetainedMessages' set to 0, cleared the entire chat history due to session timeout.")
+                else:
+                    # Keep the last N messages
+                    chat_history = chat_history[-bot.max_retained_messages:]                        
+                    bot.logger.info(f"Retained the last {bot.max_retained_messages} messages due to session timeout.")
 
-                    # Update the last message time
-                    bot.chat_history[channel_id]['last_message_time'] = datetime.datetime.utcnow()
-                    bot.logger.info(f"Session timeout. Chat history updated.")
+                # Update the last message time
+                bot.chat_history[channel_id]['last_message_time'] = datetime.datetime.utcnow()
+                bot.logger.info(f"Session timeout. Chat history updated.")
 
-                    # Log the length of chat history after trimming
-                    chat_history_length_after = len(chat_history.chat_data.get('chat_history', []))
-                    bot.logger.info(f"Chat history length after trimming: {chat_history_length_after}")
+                # Log the length of chat history after trimming
+                chat_history_length_after = len(chat_history)
+                bot.logger.info(f"Chat history length after trimming: {chat_history_length_after}")
 
-                    bot.logger.info(f"[DebugInfo] Session timed out. Chat history updated.")
+                bot.logger.info(f"[DebugInfo] Session timed out. Chat history updated.")
         else:
             # Log the skipping of session timeout check
-            bot.logger.info(f"[DebugInfo] Session timeout check skipped as 'SessionTimeoutMinutes' is set to 0.")            
+            bot.logger.info(f"[DebugInfo] Session timeout check skipped as 'SessionTimeoutMinutes' is set to 0.")       
 
         # Update chat history and last message time after processing the current message
         bot.chat_history[channel_id]['messages'] = chat_history
@@ -142,15 +178,6 @@ async def handle_message(bot, message):
         # Update the time of the last message
         if 'last_message_time' in chat_history:
             chat_history['last_message_time'] = current_time
-
-        # Log the current chat history
-        # bot.logger.debug(f"Current chat history: {context.chat_data.get('chat_history')}")
-
-        # Initialize chat_history as an empty list if it doesn't exist
-        # chat_history = context.chat_data.get('chat_history', [])
-
-        # Append the new user message to the chat history
-        # chat_history.append({"role": "user", "content": user_message_with_timestamp})
 
         # Append the new user message to the chat history
         chat_history.append({"role": "user", "content": user_message_with_timestamp})
@@ -162,7 +189,8 @@ async def handle_message(bot, message):
         chat_history_with_system_message = [system_message] + chat_history
 
         # Trim chat history if it exceeds a specified length or token limit
-        bot.trim_chat_history(chat_history, bot.max_tokens)
+        if bot_reply is not None:
+            bot.trim_chat_history(chat_history, bot.max_tokens)
 
         # Log the incoming user message
         bot.log_message('User', message.author.id, message.content)
@@ -171,11 +199,21 @@ async def handle_message(bot, message):
         chat_history.append({"role": "assistant", "content": bot_reply})
 
         # Trim chat history if it exceeds a specified length or token limit
-        bot.trim_chat_history(chat_history, bot.max_tokens)
+        if bot_reply is not None:
+            bot.trim_chat_history(chat_history, bot.max_tokens)
+        
         bot.chat_history[channel_id] = chat_history
 
+        # attempt to send a reply
         for attempt in range(bot.max_retries):
             try:
+                # Before making the request
+                payload_messages = []
+                for message in chat_history:
+                    if message['content'] is not None:
+                        payload_messages.append(message)
+                
+                # Construct payload
                 payload = {
                     "model": bot.model,
                     "messages": chat_history_with_system_message,
@@ -186,20 +224,32 @@ async def handle_message(bot, message):
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {openai.api_key}"
                 }
+
+                bot.logger.info(f"API Request Payload: {json.dumps(payload, indent=2)}")
+
                 async with httpx.AsyncClient() as client:
                     response = await client.post("https://api.openai.com/v1/chat/completions",
                                                  data=json.dumps(payload),
                                                  headers=headers,
                                                  timeout=bot.timeout)
                     response_json = response.json()
+                    bot.logger.info(f"API Response: {response.text}")
 
-                bot_reply = response_json['choices'][0]['message']['content'].strip()
-                bot_token_count = bot.count_tokens(bot_reply)
-                bot.total_token_usage += bot_token_count
+                # Check for errors
+                if response.status_code != 200:
+                    bot.logger.error("Received error response from API")
+                    # Handle error appropriately
+                else:
+                    response_json = response.json()
+                    # Process the response as usual
+                    bot_reply = response_json['choices'][0]['message']['content'].strip()
 
-                bot.write_total_token_usage(bot.total_token_usage)
-
-                bot.logger.info(f"Bot's response: {bot_reply}")
+                if bot_reply is not None:
+                    # Count tokens and append bot's reply to the chat history
+                    chat_history.append({"role": "assistant", "content": bot_reply})
+                    bot_token_count = bot.count_tokens(bot_reply)
+                    bot.total_token_usage += bot_token_count
+                    bot.trim_chat_history(chat_history, bot.max_tokens)
 
                 await message.channel.send(bot_reply)
                 break
@@ -212,14 +262,49 @@ async def handle_message(bot, message):
                     await message.channel.send("Sorry, I'm having trouble connecting. Please try again later.")
                     break
 
+            except httpx.HTTPStatusError as e:
+                bot.logger.error(f"HTTP error occurred: {e.response.status_code}")
+                bot.logger.debug(e.response.text)
+                await message.channel.send("An error occurred while processing your request. Please try again later.")
+
             except Exception as e:
                 bot.logger.error(f"Error during message processing: {e}")
                 await message.channel.send("Sorry, there was an error processing your message.")
                 return
+        
+        # Append the bot's response to the chat history only if bot_reply is not None
+        """ if bot_reply:
+            chat_history.append({"role": "assistant", "content": bot_reply})
+            # Trim chat history if it exceeds a specified length or token limit
+            bot_token_count = bot.count_tokens(bot_reply)  # Count tokens here
+            bot.total_token_usage += bot_token_count
+            bot.trim_chat_history(chat_history, bot.max_tokens)"""
+        
+        # Update the chat history in the main bot data
+        # bot.chat_history[channel_id] = {'last_message_time': datetime.datetime.utcnow(), 'messages': chat_history}
+
+        # After the loop, trim the chat history outside the loop
+        # This ensures it's only done once after the final attempt
+        bot.trim_chat_history(chat_history, bot.max_tokens)
+
+        # Update the chat history in the main bot data
+        bot.chat_history[channel_id] = {'last_message_time': datetime.datetime.utcnow(), 'messages': chat_history}
+
+    except AttributeError as e:
+        bot.logger.error(f"AttributeError encountered: {e}")
+        bot.logger.error(f"Message object details: {message}")
+        return
 
     except Exception as e:
-        bot.logger.error("Unhandled exception:", exc_info=e)
+        bot.logger.error("Unhandled exception:", exc_info=True)
         logging.info(f"Unhandled exception: {e}")
         import traceback
         traceback.print_exc()
-        await message.channel.send("An unexpected error occurred. Please try again.")
+        
+        if isinstance(message, discord.Message):
+            try:
+                await message.channel.send("An unexpected error occurred. Please try again.")
+            except Exception as e_inner:
+                bot.logger.error(f"Error during error handling: {e_inner}", exc_info=True)
+        else:
+            await message.channel.send("An unexpected error occurred. Please try again.")

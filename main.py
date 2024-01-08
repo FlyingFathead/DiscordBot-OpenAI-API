@@ -1,7 +1,7 @@
 # main.py
 # Discord Bot for OpenAI API // FlyingFathead (w/ ghostcode: ChaosWhisperer)
 # Jan 2024
-version_number = "0.01"
+version_number = "0.04"
 
 # main modules
 import datetime
@@ -13,16 +13,18 @@ from logging.handlers import RotatingFileHandler
 from functools import partial
 
 import requests
-import discord
 import asyncio
 import openai
 import json
 import httpx
 import asyncio
 import re
-
 # for token counting
 from transformers import GPT2Tokenizer
+
+# discord bot modules
+import discord
+from discord.ext import commands
 
 # discord-bot modules
 import utils
@@ -45,6 +47,10 @@ logger = logging.getLogger(__name__)
 # Initialize the tokenizer globally
 tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
+intents = discord.Intents.default()
+intents.messages = True  # Ensure this is enabled
+intents.message_content = True  # Enable message content intent
+
 # Discord bot class
 class DiscordBot:
 
@@ -52,6 +58,15 @@ class DiscordBot:
     version_number = version_number
 
     def __init__(self):
+
+        # Attempt to get bot & API tokens
+        try:
+            self.bot_token = get_discord_bot_token()
+            openai.api_key = get_api_key()
+        except FileNotFoundError as e:
+            self.logger.error(f"Required configuration not found: {e}")
+            sys.exit(1)
+
         # Load configuration, initialize logging, etc.
         self.load_config()
         self.initialize_logging()
@@ -71,7 +86,10 @@ class DiscordBot:
         self.chat_history = {}        
 
         # Create Discord client
-        self.client = discord.Client(intents=discord.Intents.default())
+        # self.client = discord.Client(intents=discord.Intents.default())
+
+        # Initialize only one client with the bot commands and intents
+        self.client = commands.Bot(command_prefix='!', intents=intents)
 
         # Setup event handlers
         self.setup_handlers()
@@ -208,9 +226,25 @@ class DiscordBot:
             if message.author == self.client.user:
                 return
             
+            # Extract channel_id from the message
+            channel_id = message.channel.id
+
             # Handle messages
             # Handle the message using your text message handler
-            await handle_message(self, message)
+            await handle_message(self, message, channel_id)
+
+        """ @self.client.event
+        async def on_message(message):
+            print(f"Author: {message.author} - Content: '{message.content}'")
+            # Prevent further processing if the message is from the bot itself
+            if message.author == self.client.user:
+                return """
+
+        """ # debug tryout
+        @self.client.event
+        async def on_message(message):
+            if message.author != self.client.user:
+                print(message.content)  # Just print the content for testing """
 
     # run
     def run(self):
