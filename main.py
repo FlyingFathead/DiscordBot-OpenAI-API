@@ -1,7 +1,7 @@
 # main.py
 # Discord Bot for OpenAI API // FlyingFathead (w/ ghostcode: ChaosWhisperer)
 # Jan 2024
-version_number = "0.04"
+version_number = "0.05"
 
 # main modules
 import datetime
