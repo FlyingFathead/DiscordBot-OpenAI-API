@@ -65,6 +65,8 @@ async def handle_message(bot, message, channel_id):
     try:
         user_message = message.content
         channel_id = message.channel.id
+        username = message.author.name  # Get the username of the message author
+        display_name = message.author.display_name  # Get the display name of the message author
 
         # Log the received user message
         bot.logger.info(f"Received message from {message.author.name} in channel {channel_id}: {user_message}")
@@ -77,7 +79,7 @@ async def handle_message(bot, message, channel_id):
             }
 
         chat_history = bot.chat_history[channel_id]['messages']
-        append_to_chat_history(chat_history, "user", user_message)
+        # append_to_chat_history(chat_history, "user", user_message)
 
         # Prepare the system message
         system_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -87,8 +89,12 @@ async def handle_message(bot, message, channel_id):
             "content": f"System time+date: {system_timestamp}, {day_of_week}): {bot.system_instructions}"
         }
 
-        # Append system message to the chat history
         append_to_chat_history(chat_history, system_message["role"], system_message["content"])
+
+        # Append the user message with the username to the chat history
+        user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
+        logging.info(f"[INFO] Käyttäjä {display_name} sanoo: {user_message}")
+        append_to_chat_history(chat_history, "user", user_message_with_username)
 
         # Attempt to send a reply
         for attempt in range(bot.max_retries):
