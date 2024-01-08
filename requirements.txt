@@ -1,0 +1,6 @@
+discord.py==2.3.2
+configparser>=6.0.0
+httpx>=0.26.0
+openai>=1.6.1
+transformers>=4.36.2
+requests>=2.31.0
