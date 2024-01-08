@@ -21,6 +21,10 @@ import utils
 
 # discord bot modules
 from text_message_handler import handle_message
+from modules import count_tokens, read_total_token_usage, write_total_token_usage
+from modules import markdown_to_html, check_global_rate_limit
+from modules import log_message, rotate_log_file
+import utils
 
 # read the API tokens
 from bot_token import get_discord_bot_token
@@ -77,7 +81,7 @@ class DiscordBot:
         self.admin_only_reset = self.config.getboolean('AdminOnlyReset', True)
 
     def initialize_logging(self):
-        self.logger = logging.getLogger('TelegramBotLogger')
+        self.logger = logging.getLogger('DiscordBotLogger')
         self.logger.setLevel(logging.INFO)
         if self.logfile_enabled:
             file_handler = RotatingFileHandler(self.logfile_file, maxBytes=1048576, backupCount=5)
@@ -116,6 +120,8 @@ class DiscordBot:
     def run(self):
         # Run the Discord bot
         discord_bot_token = get_discord_bot_token()  # Retrieve the Discord bot token
+        logging.info(f"Token being used: {discord_bot_token}")    
+        print(f"Token being used: {discord_bot_token}")        
         self.client.run(discord_bot_token)
 
 if __name__ == '__main__':

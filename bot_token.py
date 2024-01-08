@@ -1,6 +1,8 @@
 # bot_token.py
 # ~~~ read the discord bot token ~~~
-# (this is the long string listed as "client secret" in your OAuth2 settings)
+# To get the token:
+# Go the Discord Developer Portal => select your bot
+# Click on "Reset Token" to generate a new one, use that.
 
 import os
 import sys
