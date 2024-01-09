@@ -1,7 +1,7 @@
 # main.py
 # Discord Bot for OpenAI API // FlyingFathead (w/ ghostcode: ChaosWhisperer)
 # Jan 2024
-version_number = "0.06"
+version_number = "0.07"
 
 # main modules
 import datetime
@@ -114,6 +114,10 @@ class DiscordBot:
         self.bot_disabled_msg = self.config.get('BotDisabledMsg', 'The bot is currently disabled.')
         self.enable_whisper = self.config.getboolean('EnableWhisper', True)
         self.max_voice_message_length = self.config.getint('MaxDurationMinutes', 5)
+
+        self.desired_channel_name = self.config.get('DesiredChannelName', 'chatkeke')
+        self.hello_message = self.config.get('HelloMessage', 'Hello! I am online and ready to assist!')
+
         self.data_directory = self.config.get('DataDirectory', 'data')  # Default to 'data' if not set
         self.max_storage_mb = self.config.getint('MaxStorageMB', 100) # Default to 100 MB if not set
         self.logfile_enabled = self.config.getboolean('LogFileEnabled', True)
@@ -219,6 +223,15 @@ class DiscordBot:
         async def on_ready():
             # Logic when bot is ready
             logging.info(f'Logged in as {self.client.user}')
+            # Iterate through all the guilds (servers) the bot is in
+            for guild in self.client.guilds:
+                # Iterate through all the channels in the guild
+                for channel in guild.channels:
+                    # Check if the channel name matches the desired one
+                    if channel.name == self.desired_channel_name:
+                        # Send the hello message to this channel
+                        await channel.send(self.hello_message)
+                        return  # Exit the function once the message is sent
 
         @self.client.event
         async def on_message(message):
@@ -245,7 +258,7 @@ class DiscordBot:
         async def on_message(message):
             if message.author != self.client.user:
                 print(message.content)  # Just print the content for testing """
-
+        
     # run
     def run(self):
         # Run the Discord bot

@@ -29,9 +29,8 @@ DESIRED_CHANNEL_NAME = "chatkeke"
 def append_to_chat_history(chat_history, role, content):
     if content:
         chat_history.append({"role": role, "content": content})
-        # Keep only the latest MAX_TURNS messages in chat history
-        if len(chat_history) > MAX_TURNS:
-            chat_history = chat_history[-MAX_TURNS:]
+    # Keep only the latest MAX_TURNS messages in chat history
+    return chat_history[-MAX_TURNS:]
 
 # Discord text message handling logic
 async def handle_message(bot, message, channel_id):
@@ -80,7 +79,6 @@ async def handle_message(bot, message, channel_id):
             }
 
         chat_history = bot.chat_history[channel_id]['messages']
-        # append_to_chat_history(chat_history, "user", user_message)
 
         # Prepare the system message
         system_timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -90,13 +88,17 @@ async def handle_message(bot, message, channel_id):
             "content": f"System time+date: {system_timestamp}, {day_of_week}): {bot.system_instructions}"
         }
 
-        append_to_chat_history(chat_history, system_message["role"], system_message["content"])
+        # append_to_chat_history(chat_history, system_message["role"], system_message["content"])
+        # Updating chat history with the system message
+        chat_history = append_to_chat_history(chat_history, system_message["role"], system_message["content"])
 
         # Append the user message with the username to the chat history
         user_message_with_username = f"Käyttäjä <@{user_id}> sanoo: {user_message}"
         # user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
         logging.info(f"[INFO][userid for the bot: {user_id}] Käyttäjä {display_name} sanoo: {user_message}")
-        append_to_chat_history(chat_history, "user", user_message_with_username)
+        # append_to_chat_history(chat_history, "user", user_message_with_username)
+        # Updating chat history with the user message
+        chat_history = append_to_chat_history(chat_history, "user", user_message_with_username)
 
         # Attempt to send a reply
         for attempt in range(bot.max_retries):
@@ -129,8 +131,8 @@ async def handle_message(bot, message, channel_id):
 
                     bot_reply_formatted = f"{bot_reply}"    
 
-                    # append_to_chat_history(chat_history, "assistant", bot_reply)
-                    append_to_chat_history(chat_history, "assistant", bot_reply_formatted)
+                    # Updating chat history with the bot's reply
+                    chat_history = append_to_chat_history(chat_history, "assistant", bot_reply_formatted)
 
                     # Log the bot's response
                     # bot.logger.info(f"Bot's reply in channel {channel_id}: {bot_reply}")
