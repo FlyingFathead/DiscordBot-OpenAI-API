@@ -93,9 +93,9 @@ async def handle_message(bot, message, channel_id):
         chat_history = append_to_chat_history(chat_history, system_message["role"], system_message["content"])
 
         # Append the user message with the username to the chat history
-        user_message_with_username = f"Käyttäjä <@{user_id}> sanoo: {user_message}"
+        user_message_with_username = f"{display_name} <@{user_id}> says: {user_message}"
         # user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
-        logging.info(f"[INFO][userid for the bot: {user_id}] Käyttäjä {display_name} sanoo: {user_message}")
+        logging.info(f"[INFO] {display_name} <@{user_id}> says: {user_message}")
         # append_to_chat_history(chat_history, "user", user_message_with_username)
         # Updating chat history with the user message
         chat_history = append_to_chat_history(chat_history, "user", user_message_with_username)
