@@ -1,10 +1,11 @@
 # main.py
 # Discord Bot for OpenAI API // FlyingFathead (w/ ghostcode: ChaosWhisperer)
 # Jan 2024
-version_number = "0.07"
+version_number = "0.08"
 
 # main modules
 import datetime
+import pytz
 import configparser
 import os
 import sys
@@ -100,11 +101,16 @@ class DiscordBot:
         self.config = config['DEFAULT']
         self.model = self.config.get('Model', 'gpt-3.5-turbo')
         self.temperature = self.config.getfloat('Temperature', 0.7)
+
+        self.timezone = pytz.timezone(self.config.get('Timezone', 'UTC'))
+        self.mention_user_odds = self.config.getfloat('MentionUserOdds', 0.3)  # Default to 0.3
+
         self.timeout = self.config.getfloat('Timeout', 30.0)        
         self.max_tokens = self.config.getint('MaxTokens', 4096)
         self.max_retries = self.config.getint('MaxRetries', 3)
         self.retry_delay = self.config.getint('RetryDelay', 25)
         self.system_instructions = self.config.get('SystemInstructions', 'You are an OpenAI API-based chatbot on Telegram.')
+        
         self.start_command_response = self.config.get('StartCommandResponse', 'Hello! I am a chatbot powered by GPT-3.5. Start chatting with me!')
         # Read and parse the BotAdminIDs
         admin_ids_str = self.config.get('BotAdminIDs', '')
@@ -209,6 +215,12 @@ class DiscordBot:
     # split long messages
     def split_large_messages(self, message, max_length=4096):
         return [message[i:i+max_length] for i in range(0, len(message), max_length)]
+
+    # method to convert and format datetime
+    def format_datetime(self, dt):
+        # Convert to the configured timezone
+        tz_aware_dt = dt.astimezone(self.timezone)
+        return tz_aware_dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
     def initialize_chat_logging(self):
         if self.chat_logging_enabled:

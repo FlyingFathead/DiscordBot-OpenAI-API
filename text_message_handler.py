@@ -2,6 +2,7 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # text message handler for openai-api discord bot
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+import random
 import discord
 import asyncio
 import logging
@@ -16,11 +17,13 @@ import utils
 import discord
 from discord.ext import commands
 
+from custom_functions import custom_functions
+
 intents = discord.Intents.default()
 intents.message_content = True  # Enable message content intent
 
 # Maximum number of message turns to retain in the chat history
-MAX_TURNS = 10
+MAX_TURNS = 30
 
 # Desired channel name
 DESIRED_CHANNEL_NAME = "chatkeke"
@@ -92,8 +95,20 @@ async def handle_message(bot, message, channel_id):
         # Updating chat history with the system message
         chat_history = append_to_chat_history(chat_history, system_message["role"], system_message["content"])
 
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~
+        # The incoming user message
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~
         # Append the user message with the username to the chat history
-        user_message_with_username = f"{display_name} <@{user_id}> says: {user_message}"
+        
+        # (without timestamps)
+        # user_message_with_username = f"{display_name} <@{user_id}> says: {user_message}"
+
+        # Format the current time with the configured timezone
+        timestamp = bot.format_datetime(datetime.datetime.now())
+
+        # Append the user message with the username and timestamp to the chat history
+        user_message_with_username= f"[{timestamp}] {display_name} <@{user_id}> says: {user_message}"
+        
         # user_message_with_username = f"Käyttäjä {display_name} sanoo: {user_message}"
         logging.info(f"[INFO] {display_name} <@{user_id}> says: {user_message}")
         # append_to_chat_history(chat_history, "user", user_message_with_username)
@@ -107,7 +122,9 @@ async def handle_message(bot, message, channel_id):
                 payload = {
                     "model": bot.model,
                     "messages": chat_history,  # Updated to include the latest user message
-                    "temperature": bot.temperature
+                    "temperature": bot.temperature,
+                    "functions": custom_functions,
+                    "function_call": 'auto'  # Allows the model to dynamically choose the function                   
                 }
 
                 headers = {
@@ -130,6 +147,12 @@ async def handle_message(bot, message, channel_id):
                     # bot_reply_formatted = f"<@{user_id}> {bot_reply}"    
 
                     bot_reply_formatted = f"{bot_reply}"    
+
+                    # Decide randomly whether to mention the user
+                    if random.random() < bot.mention_user_odds:
+                        bot_reply_formatted = f"<@{user_id}> {bot_reply}"
+                    else:
+                        bot_reply_formatted = bot_reply
 
                     # Updating chat history with the bot's reply
                     chat_history = append_to_chat_history(chat_history, "assistant", bot_reply_formatted)
