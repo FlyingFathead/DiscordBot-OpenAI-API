@@ -30,6 +30,7 @@ requests>=2.31.0
 8. Launch the bot with: `python main.py`
 
 # Changelog
+- v0.14 - Various small fixes, not implemented in this version yet.
 - v0.08 - `Timezone` added to options.
 - v0.07 - Chat history trimming adjusted, hello message on join; still WIP!
 - v0.05 - Well, it works. Initial early release. Expect nothing much.
